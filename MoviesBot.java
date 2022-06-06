@@ -11,6 +11,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.time.LocalDate;
+import java.time.Period;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,10 @@ public class MoviesBot extends TelegramLongPollingBot {
 
     // map which contains premieres by dates
     HashMap<LocalDate, StringBuilder> premieresByDate = new HashMap<>();
+
+    // creating parsing builder
+    GsonBuilder builder = new GsonBuilder();
+    Gson gson = builder.create();
 
     @Override
     public String getBotUsername() {
@@ -103,9 +108,8 @@ public class MoviesBot extends TelegramLongPollingBot {
     @SneakyThrows
     public HttpResponse<JsonNode> sendRequest(String request) {
 
-        String api_key = HiddenVariables.bot_token;
         return Unirest.get(request)
-                .header(HiddenVariables.bot_key_name, api_key)
+                .header(HiddenVariables.bot_key_name, HiddenVariables.api_key)
                 .asJson();
 
     }
@@ -127,8 +131,6 @@ public class MoviesBot extends TelegramLongPollingBot {
 
         String request = HiddenVariables.films_request + getID;
         HttpResponse<JsonNode> response = sendRequest(request);
-        GsonBuilder builder = new GsonBuilder();
-        Gson gson = builder.create();
         return new Gson().fromJson(String.valueOf(response.getBody()), Movie.class);
 
     }
@@ -136,18 +138,30 @@ public class MoviesBot extends TelegramLongPollingBot {
     @SneakyThrows
     public StringBuilder showPremieres(long userID) {
 
+        System.out.println("|| Current premieres hashmap ||");
+        System.out.println(premieresByDate.keySet());
+
         LocalDate date = LocalDate.now();
 
         if (premieresByDate.get(date) != null) {
             return premieresByDate.get(date);
         }
 
+        LinkedList<LocalDate> datesToRemove = new LinkedList<>();
+
+        for (LocalDate forDate: premieresByDate.keySet()) {
+            Period period = Period.between(date, forDate);
+            if (Math.abs(period.getDays()) > 2) { datesToRemove.add(forDate); }
+        }
+
+        for (LocalDate forDate: datesToRemove) {
+            premieresByDate.remove(forDate);
+        }
+
         List<Movie> premieres;
 
         String request = HiddenVariables.premieres_request1 + date.getYear() + HiddenVariables.premieres_request2 + date.getMonth();
         HttpResponse<JsonNode> response = sendRequest(request);
-        GsonBuilder builder = new GsonBuilder();
-        Gson gson = builder.create();
         MainModel mainModel = new Gson().fromJson(String.valueOf(response.getBody()), MainModel.class);
 
         // filtering the list of premieres with stream API (filmed less than 3 years ago, will be released soon, first 15 items)
@@ -199,8 +213,6 @@ public class MoviesBot extends TelegramLongPollingBot {
         String request = HiddenVariables.films_request + searchSimilars.getKinopoiskId() + "/similars";
         HttpResponse<JsonNode> response = sendRequest(request);
 
-        GsonBuilder builder = new GsonBuilder();
-        Gson gson = builder.create();
         MainModel mainModel = new Gson().fromJson(String.valueOf(response.getBody()), MainModel.class);
         List<Movie> similars;
 
@@ -246,14 +258,13 @@ public class MoviesBot extends TelegramLongPollingBot {
         String request = HiddenVariables.search_by_keyword_request1 + getName + HiddenVariables.search_by_keyword_request2;
         HttpResponse<JsonNode> response = sendRequest(request);
 
-        GsonBuilder builder = new GsonBuilder();
-        Gson gson = builder.create();
         String responseAnswer = response.getBody().toString();
 
         if (responseAnswer.contains("\"searchFilmsCountResult\":0"))  {
             return null;
         } else {
-            long madeId = Long.parseLong(responseAnswer.substring(responseAnswer.indexOf("filmId") + 8, responseAnswer.indexOf("filmId") + 15).replaceAll("[^\\d]", ""));
+            long madeId = Long.parseLong(responseAnswer.substring(responseAnswer.indexOf("filmId") + 8,
+                    responseAnswer.indexOf("filmId") + 15).replaceAll("[^\\d]", ""));
             return getMovieByID(madeId);
         }
 
@@ -272,6 +283,8 @@ public class MoviesBot extends TelegramLongPollingBot {
                 switch (command) {
                     case "/start":
                         userState.put(message.getChatId(), BotState.STATIC);
+                        System.out.println("User ID:" + message.getChatId() + " started working with mfm_movies_bot");
+                        System.out.println("Current number of users: " + userState.size());
                         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
                         buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83D\uDCC5 Ближайшие премьеры")
                                 .callbackData("TODAY'S PREMIERES").build()));
@@ -392,8 +405,6 @@ public class MoviesBot extends TelegramLongPollingBot {
 
         String request = HiddenVariables.staff_request + getID;
         HttpResponse<JsonNode> response = sendRequest(request);
-        GsonBuilder builder = new GsonBuilder();
-        Gson gson = builder.create();
         return new Gson().fromJson(String.valueOf(response.getBody()), Person.class);
 
     }
@@ -409,8 +420,6 @@ public class MoviesBot extends TelegramLongPollingBot {
         String request = HiddenVariables.person_request1 + getName + HiddenVariables.person_request2;
         HttpResponse<JsonNode> response = sendRequest(request);
 
-        GsonBuilder builder = new GsonBuilder();
-        Gson gson = builder.create();
         String responseAnswer = response.getBody().toString();
 
         if (responseAnswer.contains("\"searchFilmsCountResult\":0"))  {
