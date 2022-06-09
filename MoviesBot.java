@@ -184,13 +184,21 @@ public class MoviesBot extends TelegramLongPollingBot {
 
             Movie movieDetails = getMovieByID(movie.getKinopoiskId());
 
-            moviesLine.append("\n\n\uD83D\uDD39 \"").append(movie.getName()).append("\" ");
+            moviesLine.append("\n\n\uD83D\uDD39 ");
+
+            if (movieDetails.getName() != null) moviesLine.append("\"").append(movie.getName()).append("\" ");
+                else moviesLine.append("Название не заявлено");
+
             if (movieDetails.getYear() != 0) moviesLine.append("(").append(movieDetails.getYear()).append(")\n");
-            moviesLine.append("Премьера в России: ").append(movie.getPremiereRu().substring(8))
-                    .append(movie.getPremiereRu().substring(4, 7))
-                    .append("-")
-                    .append(movie.getPremiereRu().substring(0, 4))
-                    .append("\n");
+
+            if (movie.getPremiereRu() != null) {
+                moviesLine.append("Премьера в России: ").append(movie.getPremiereRu().substring(8))
+                        .append(movie.getPremiereRu().substring(4, 7))
+                        .append("-")
+                        .append(movie.getPremiereRu().substring(0, 4))
+                        .append("\n");
+            }
+
             if (movieDetails.getWebUrl() != null) moviesLine.append("Ссылка на <a href=\"").append(movieDetails.getWebUrl()).append("\">КиноПоиск</a>");
 
             if (movieDetails.getRatingKinopoisk() != 0) { moviesLine.append("\nКинопоиск ").append(movieDetails.getRatingKinopoisk()).append(" "); }
@@ -226,20 +234,20 @@ public class MoviesBot extends TelegramLongPollingBot {
             return similarsList;
         }
 
-        similarsList.append("Фильмы, похожие на \"").append(searchSimilars.getName()).append("\"");
+        similarsList.append("Фильмы, похожие на \"").append(searchSimilars.getName()).append("\"\n\n");
 
         for (Movie movie: similars) {
 
             Movie movieDetails = getMovieByID(movie.getFilmId());
 
-            similarsList.append("\n\n\uD83D\uDD39 \"").append(movie.getName()).append("\" ");
+            if (movieDetails.getName() != null) similarsList.append("\uD83C\uDFAC  \"").append(movie.getName()).append("\" ");
+            else similarsList.append("Название не заявлено");
 
             if (movieDetails.getYear() != 0) { similarsList.append("(").append(movieDetails.getYear()).append(")").append("\n"); }
-
             if (movieDetails.getRatingKinopoisk() != 0) { similarsList.append("Кинопоиск ").append(movieDetails.getRatingKinopoisk()).append(" "); }
             if (movieDetails.getRatingImdb() != 0) { similarsList.append("IMDB ").append(movieDetails.getRatingImdb()).append(" "); }
             if (movieDetails.getWebUrl() != null) { similarsList.append("\n")
-                    .append("Ссылка на <a href=\"").append(movieDetails.getWebUrl()).append("\">КиноПоиск</a>").append(" "); }
+                    .append("Ссылка на <a href=\"").append(movieDetails.getWebUrl()).append("\">КиноПоиск</a>").append("\n\n"); }
 
         }
 
@@ -345,13 +353,41 @@ public class MoviesBot extends TelegramLongPollingBot {
                     userState.put(message.getChatId(), BotState.FILMINFO);
                     break;
                 } else {
-                    String movieRecieved = "\uD83C\uDFAC  \"" + answerFilmInfo.getName() + "\"" + " (" + answerFilmInfo.getYear() + ")\n\n" +
-                            "▶ ️Длительность - " + answerFilmInfo.getFilmLength() + " мин.\n\n" +
-                            "\uD83D\uDDD2 " + answerFilmInfo.getDescription() + "\n\n" +
-                            "⭐️ Кинопоиск " + answerFilmInfo.getRatingKinopoisk() +
-                            " | IMDB " + answerFilmInfo.getRatingImdb() + "\n\n" +
-                            "\uD83D\uDD17 Ссылка на <a href=\"" + answerFilmInfo.getWebUrl() + "\">КиноПоиск</a>" + "\n\n";
-                    sendFeedback(message, movieRecieved);
+                    StringBuilder movieRecieved = new StringBuilder();
+
+                    movieRecieved.append("\uD83C\uDFAC  ");
+
+                    if (answerFilmInfo.getName() != null) movieRecieved.append("\"").append(answerFilmInfo.getName()).append("\"\n\n");
+                        else movieRecieved.append("Название не заявлено\n\n");
+
+                    if (answerFilmInfo.getFilmLength() != null)
+                        movieRecieved.append("▶ ️Длительность - ")
+                        .append(answerFilmInfo.getFilmLength())
+                        .append(" мин.\n\n");
+
+                    if (answerFilmInfo.getDescription() != null)
+                        movieRecieved.append("\uD83D\uDDD2 ").append(answerFilmInfo.getDescription()).append("\n\n");
+
+                    movieRecieved.append("⭐️ Кинопоиск ");
+
+                    if (answerFilmInfo.getRatingKinopoisk() != 0)
+                        movieRecieved.append(answerFilmInfo.getRatingKinopoisk())
+                                .append(" | ");
+                    else
+                        movieRecieved.append("без рейтинга | ");
+
+                    movieRecieved.append("IMDB: ");
+
+                    if (answerFilmInfo.getRatingImdb() != 0)
+                        movieRecieved.append(answerFilmInfo.getRatingImdb())
+                                .append("\n\n");
+                    else
+                        movieRecieved.append("без рейтинга\n\n");
+
+                    if (answerFilmInfo.getWebUrl() != null)
+                        movieRecieved.append("\uD83D\uDD17 Ссылка на <a href=\"" + answerFilmInfo.getWebUrl() + "\">КиноПоиск</a>");
+
+                    sendFeedback(message, movieRecieved.toString());
                 }
                 userState.put(message.getChatId(), BotState.STATIC);
             break;
@@ -370,8 +406,19 @@ public class MoviesBot extends TelegramLongPollingBot {
                     if (answerPersonInfo.getProfession() != null) { personRecieved.append("\uD83C\uDFA6 " + answerPersonInfo.getProfession() + "\n\n"); }
                     if (answerPersonInfo.getBirthday() != null) { personRecieved.append("\uD83D\uDDD2 " + "Дата и место рождения: " + answerPersonInfo.getBirthday() + "\n"); }
                     if (answerPersonInfo.getBirthplace() != null) { personRecieved.append(answerPersonInfo.getBirthplace() + "\n"); }
-                    else { personRecieved.append(", неизвестно\n"); }
-                    if (answerPersonInfo.getAge() != 0) { personRecieved.append("\uD83D\uDCC8 Возраст - " + answerPersonInfo.getAge() + " лет\n"); }
+
+                    int lastActorsAgeDigit = answerPersonInfo.getAge() % 10;
+                    String actorsAgeDescription = "";
+
+                    if (lastActorsAgeDigit == 1) {
+                        actorsAgeDescription = " год";
+                    } else if ((lastActorsAgeDigit == 2) || (lastActorsAgeDigit == 3) || (lastActorsAgeDigit == 4)) {
+                        actorsAgeDescription = " года";
+                    } else {
+                        actorsAgeDescription = " лет";
+                    }
+
+                    if (answerPersonInfo.getAge() != 0) { personRecieved.append("\uD83D\uDCC8 Возраст - " + answerPersonInfo.getAge() + actorsAgeDescription +"\n"); }
                     if (answerPersonInfo.getGrowth() != 0) { personRecieved.append("Рост - " + answerPersonInfo.getGrowth() + " см\n\n"); }
                     if (answerPersonInfo.getWebUrl() != null) { personRecieved.append("\uD83D\uDD17 Ссылка на <a href=\"" + answerPersonInfo.getWebUrl() + "\">КиноПоиск</a>" + "\n\n"); }
 
