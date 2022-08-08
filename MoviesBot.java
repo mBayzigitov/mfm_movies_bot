@@ -12,6 +12,7 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -20,7 +21,6 @@ import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 
 public class MoviesBot extends TelegramLongPollingBot {
 
@@ -138,9 +138,6 @@ public class MoviesBot extends TelegramLongPollingBot {
     @SneakyThrows
     public StringBuilder showPremieres(long userID) {
 
-        System.out.println("|| Current premieres hashmap ||");
-        System.out.println(premieresByDate.keySet());
-
         LocalDate date = LocalDate.now();
 
         if (premieresByDate.get(date) != null) {
@@ -187,9 +184,10 @@ public class MoviesBot extends TelegramLongPollingBot {
             moviesLine.append("\n\n\uD83D\uDD39 ");
 
             if (movieDetails.getName() != null) moviesLine.append("\"").append(movie.getName()).append("\" ");
-                else moviesLine.append("Название не заявлено");
+                else moviesLine.append("Название не заявлено ");
 
-            if (movieDetails.getYear() != 0) moviesLine.append("(").append(movieDetails.getYear()).append(")\n");
+            if (movieDetails.getYear() != 0) moviesLine.append("(").append(movieDetails.getYear()).append(")");
+            moviesLine.append("\n");
 
             if (movie.getPremiereRu() != null) {
                 moviesLine.append("Премьера в России: ").append(movie.getPremiereRu().substring(8))
@@ -290,24 +288,32 @@ public class MoviesBot extends TelegramLongPollingBot {
 
                 switch (command) {
                     case "/start":
-                        userState.put(message.getChatId(), BotState.STATIC);
-                        System.out.println("User ID:" + message.getChatId() + " started working with mfm_movies_bot");
-                        System.out.println("Current number of users: " + userState.size());
-                        List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-                        buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83D\uDCC5 Ближайшие премьеры")
-                                .callbackData("TODAY'S PREMIERES").build()));
-                        buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83C\uDFAC Информация о фильме")
-                                .callbackData("INFORMATION ABOUT THE MOVIE").build()));
-                        buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83C\uDFAD Информация об актёре или режиссёре")
-                                .callbackData("PERSON").build()));
-                        buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83D\uDD39 Похожие фильмы")
-                                .callbackData("SIMILARS").build()));
-                        execute(
-                                SendMessage.builder()
-                                        .chatId(message.getChatId().toString())
-                                        .text("\uD83D\uDCAC Что я могу для вас сделать?")
-                                        .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
-                                        .build());
+                        String request = HiddenVariables.films_request + "725190";
+                        HttpResponse<JsonNode> response = sendRequest(request);
+
+                        if (response.getStatus() != 200) {
+                            userState.put(message.getChatId(), BotState.NOT_AVAILABLE);
+                            sendFeedback(message, "Просим прощения, на данный момент сервис недоступен. Попробуйте позже.");
+                        } else {
+                            userState.put(message.getChatId(), BotState.STATIC);
+                            System.out.println("User ID: " + message.getChatId() + " started working with mfm_movies_bot");
+                            System.out.println("Current number of users: " + userState.size());
+                            List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+                            buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83D\uDCC5 Ближайшие премьеры")
+                                    .callbackData("TODAY'S PREMIERES").build()));
+                            buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83C\uDFAC Информация о фильме")
+                                    .callbackData("INFORMATION ABOUT THE MOVIE").build()));
+                            buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83C\uDFAD Информация об актёре или режиссёре")
+                                    .callbackData("PERSON").build()));
+                            buttons.add(Collections.singletonList(InlineKeyboardButton.builder().text("\uD83D\uDD39 Похожие фильмы")
+                                    .callbackData("SIMILARS").build()));
+                            execute(
+                                    SendMessage.builder()
+                                            .chatId(message.getChatId().toString())
+                                            .text("\uD83D\uDCAC Что я могу для вас сделать?")
+                                            .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
+                                            .build());
+                        }
                         break;
                     case "/premieres":
                         sendFeedback(message, "⏱ Пожалуйста, подождите");
@@ -442,7 +448,8 @@ public class MoviesBot extends TelegramLongPollingBot {
                 }
                 userState.put(message.getChatId(), BotState.STATIC);
             break;
-            case STATIC: sendFeedback(message, "\uD83D\uDCAC Ни одна команда на данный момент не используется. Введите /start, чтобы начать.");
+            case STATIC: sendFeedback(message, "\uD83D\uDCAC Ни одна команда на данный момент не используется. Введите /start, чтобы начать."); break;
+            case NOT_AVAILABLE: sendFeedback(message, "\uD83D\uDCAC Просим прощения, сервис на данный момент недоступен. Попробуйте позже."); break;
         }
 
     }
