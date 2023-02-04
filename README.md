@@ -28,4 +28,4 @@ MoviesForMe is a bot with which you can
 
 ## Warning
 
-The bot may not work at the end of the month because of its on a free hosting
+The bot isn't available at the moment
