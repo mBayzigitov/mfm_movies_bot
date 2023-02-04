@@ -29,3 +29,11 @@ MoviesForMe is a bot with which you can
 ## Warning
 
 The bot isn't available at the moment
+
+## While working on this project I practiced:
+
+- OOP
+- Working with API
+- Java stream API
+- Gson library
+- Heroku deploy
